@@ -3,78 +3,87 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Определение цветов
-$RED = "`e[31m"
-$GREEN = "`e[32m"
-$YELLOW = "`e[33m"
-$BLUE = "`e[34m"
-$NC = "`e[0m"
+[string]$RED = "`e[31m"
+[string]$GREEN = "`e[32m"
+[string]$YELLOW = "`e[33m"
+[string]$BLUE = "`e[34m"
+[string]$NC = "`e[0m"
 
 # Пути к файлам конфигурации
-$STORAGE_FILE = "$env:APPDATA\Cursor\User\globalStorage\storage.json"
-$BACKUP_DIR = "$env:APPDATA\Cursor\User\globalStorage\backups"
+$STORAGE_FILE = Join-Path $env:APPDATA "Cursor\User\globalStorage\storage.json"
+$BACKUP_DIR = Join-Path $env:APPDATA "Cursor\User\globalStorage\backups"
 
 # Функция инициализации Cursor (очистка)
 function Cursor-Инициализация {
-    Write-Host "$GREEN[Информация]$NC Выполняется инициализация и очистка Cursor..."
-    $BASE_PATH = "$env:APPDATA\Cursor\User"
-
-    $filesToDelete = @(
-        (Join-Path -Path $BASE_PATH -ChildPath "globalStorage\\state.vscdb"),
-        (Join-Path -Path $BASE_PATH -ChildPath "globalStorage\\state.vscdb.backup")
-    )
+    [CmdletBinding()]
+    param()
     
-    $folderToCleanContents = Join-Path -Path $BASE_PATH -ChildPath "History"
-    $folderToDeleteCompletely = Join-Path -Path $BASE_PATH -ChildPath "workspaceStorage"
+    BEGIN {
+        Write-Information "$GREEN[Информация]$NC Выполняется инициализация и очистка Cursor..."
+        $BASE_PATH = Join-Path $env:APPDATA "Cursor\User"
 
-    Write-Host "$BLUE[Отладка]$NC Базовый путь: $($BASE_PATH)"
+        $filesToDelete = @(
+            (Join-Path -Path $BASE_PATH -ChildPath "globalStorage\state.vscdb"),
+            (Join-Path -Path $BASE_PATH -ChildPath "globalStorage\state.vscdb.backup")
+        )
+        
+        $folderToCleanContents = Join-Path -Path $BASE_PATH -ChildPath "History"
+        $folderToDeleteCompletely = Join-Path -Path $BASE_PATH -ChildPath "workspaceStorage"
 
-    # Удаление указанных файлов
-    foreach ($file in $filesToDelete) {
-        Write-Host "$BLUE[Отладка]$NC Проверка файла: $($file)"
-        if (Test-Path $file) {
+        Write-Information "$BLUE[Отладка]$NC Базовый путь: $($BASE_PATH)"
+    }
+
+    PROCESS {
+        # Удаление указанных файлов
+        foreach ($file in $filesToDelete) {
+            Write-Information "$BLUE[Отладка]$NC Проверка файла: $($file)"
+            if (Test-Path -Path $file) {
+                try {
+                    Remove-Item -Path $file -Force -ErrorAction Stop
+                    Write-Information "$GREEN[Успех]$NC Файл удалён: $($file)"
+                }
+                catch {
+                    Write-Warning "$RED[Ошибка]$NC Не удалось удалить файл $($file): $($_.Exception.Message)"
+                }
+            } else {
+                Write-Warning "$YELLOW[Предупреждение]$NC Файл не найден, пропуск: $($file)"
+            }
+        }
+
+        # Очистка содержимого папки
+        Write-Information "$BLUE[Отладка]$NC Проверка папки для очистки: $($folderToCleanContents)"
+        if (Test-Path -Path $folderToCleanContents) {
             try {
-                Remove-Item -Path $file -Force -ErrorAction Stop
-                Write-Host "$GREEN[Успех]$NC Файл удалён: $($file)"
+                Get-ChildItem -Path $folderToCleanContents -Recurse | 
+                    Remove-Item -Recurse -Force -ErrorAction Stop
+                Write-Information "$GREEN[Успех]$NC Содержимое папки очищено: $($folderToCleanContents)"
             }
             catch {
-                Write-Host "$RED[Ошибка]$NC Не удалось удалить файл $($file): $($_.Exception.Message)"
+                Write-Warning "$RED[Ошибка]$NC Не удалось очистить папку $($folderToCleanContents): $($_.Exception.Message)"
             }
         } else {
-            Write-Host "$YELLOW[Предупреждение]$NC Файл не найден, пропуск: $($file)"
+            Write-Warning "$YELLOW[Предупреждение]$NC Папка не найдена, пропуск очистки: $($folderToCleanContents)"
+        }
+
+        # Удаление папки полностью
+        Write-Information "$BLUE[Отладка]$NC Проверка папки для удаления: $($folderToDeleteCompletely)"
+        if (Test-Path -Path $folderToDeleteCompletely) {
+            try {
+                Remove-Item -Path $folderToDeleteCompletely -Recurse -Force -ErrorAction Stop
+                Write-Information "$GREEN[Успех]$NC Папка удалена: $($folderToDeleteCompletely)"
+            }
+            catch {
+                Write-Warning "$RED[Ошибка]$NC Не удалось удалить папку $($folderToDeleteCompletely): $($_.Exception.Message)"
+            }
+        } else {
+            Write-Warning "$YELLOW[Предупреждение]$NC Папка не найдена, пропуск удаления: $($folderToDeleteCompletely)"
         }
     }
 
-    # Очистка содержимого папки
-    Write-Host "$BLUE[Отладка]$NC Проверка папки для очистки: $($folderToCleanContents)"
-    if (Test-Path $folderToCleanContents) {
-        try {
-            # Удаляем содержимое, не саму папку
-            Get-ChildItem -Path $folderToCleanContents -Recurse | Remove-Item -Recurse -Force -ErrorAction Stop
-            Write-Host "$GREEN[Успех]$NC Содержимое папки очищено: $($folderToCleanContents)"
-        }
-        catch {
-            Write-Host "$RED[Ошибка]$NC Не удалось очистить папку $($folderToCleanContents): $($_.Exception.Message)"
-        }
-    } else {
-        Write-Host "$YELLOW[Предупреждение]$NC Папка не найдена, пропуск очистки: $($folderToCleanContents)"
+    END {
+        Write-Information "$GREEN[Информация]$NC Инициализация и очистка Cursor завершена."
+        Write-Information "" # Пустая строка для форматирования
     }
-
-    # Удаление папки полностью
-    Write-Host "$BLUE[Отладка]$NC Проверка папки для удаления: $($folderToDeleteCompletely)"
-    if (Test-Path $folderToDeleteCompletely) {
-        try {
-            Remove-Item -Path $folderToDeleteCompletely -Recurse -Force -ErrorAction Stop
-            Write-Host "$GREEN[Успех]$NC Папка удалена: $($folderToDeleteCompletely)"
-        }
-        catch {
-            Write-Host "$RED[Ошибка]$NC Не удалось удалить папку $($folderToDeleteCompletely): $($_.Exception.Message)"
-        }
-    } else {
-        Write-Host "$YELLOW[Предупреждение]$NC Папка не найдена, пропуск удаления: $($folderToDeleteCompletely)"
-    }
-
-    Write-Host "$GREEN[Информация]$NC Инициализация и очистка Cursor завершена."
-    Write-Host "" # Пустая строка для форматирования
 }
 
 # 检查管理员权限
@@ -111,37 +120,36 @@ Write-Host "$YELLOW  [Важное замечание]  Этот инструм�
 Write-Host "$BLUE================================$NC"
 Write-Host ""
 
-# 获取并显示 Cursor 版本
+# Получение версии Cursor
 function Get-CursorVersion {
-    try {
-        # 主要检测路径
-        $packagePath = "$env:LOCALAPPDATA\\Programs\\cursor\\resources\\app\\package.json"
-        
-        if (Test-Path $packagePath) {
-            $packageJson = Get-Content $packagePath -Raw | ConvertFrom-Json
-            if ($packageJson.version) {
-                Write-Host "$GREEN[Информация]$NC Текущая установленная версия Cursor: v$($packageJson.version)"
-                return $packageJson.version
-            }
-        }
+    [CmdletBinding()]
+    param()
 
-        # 备用路径检测
-        $altPath = "$env:LOCALAPPDATA\\cursor\\resources\\app\\package.json"
-        if (Test-Path $altPath) {
-            $packageJson = Get-Content $altPath -Raw | ConvertFrom-Json
-            if ($packageJson.version) {
-                Write-Host "$GREEN[Информация]$NC Текущая установленная версия Cursor: v$($packageJson.version)"
-                return $packageJson.version
-            }
-        }
-
-        Write-Host "$YELLOW[Предупреждение]$NC Не удалось определить версию Cursor"
-        Write-Host "$YELLOW[Подсказка]$NC Убедитесь, что Cursor установлен правильно"
-        return $null
+    BEGIN {
+        $mainPath = Join-Path $env:LOCALAPPDATA "Programs\cursor\resources\app\package.json"
+        $altPath = Join-Path $env:LOCALAPPDATA "cursor\resources\app\package.json"
     }
-    catch {
-        Write-Host "$RED[Ошибка]$NC Получение версии Cursor не удалось: $_"
-        return $null
+
+    PROCESS {
+        try {
+            foreach ($packagePath in @($mainPath, $altPath)) {
+                if (Test-Path -Path $packagePath) {
+                    $packageJson = Get-Content -Path $packagePath -Raw | ConvertFrom-Json
+                    if ($packageJson.version) {
+                        Write-Information "$GREEN[Информация]$NC Текущая установленная версия Cursor: v$($packageJson.version)"
+                        return $packageJson.version
+                    }
+                }
+            }
+
+            Write-Warning "$YELLOW[Предупреждение]$NC Не удалось определить версию Cursor"
+            Write-Warning "$YELLOW[Подсказка]$NC Убедитесь, что Cursor установлен правильно"
+            return $null
+        }
+        catch {
+            Write-Error "$RED[Ошибка]$NC Получение версии Cursor не удалось: $_"
+            return $null
+        }
     }
 }
 
@@ -156,46 +164,65 @@ Write-Host ""
 Write-Host "$GREEN[信息]$NC 检查 Cursor 进程..."
 
 function Get-ProcessDetails {
-    param($processName)
-    Write-Host "$BLUE[调试]$NC 正在获取 $processName 进程详细信息："
-    Get-WmiObject Win32_Process -Filter "name='$processName'" | 
-        Select-Object ProcessId, ExecutablePath, CommandLine | 
-        Format-List
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$ProcessName
+    )
+
+    PROCESS {
+        Write-Information "$BLUE[Отладка]$NC Получение информации о процессе $ProcessName"
+        Get-WmiObject -Class Win32_Process -Filter "name='$ProcessName'" | 
+            Select-Object -Property ProcessId, ExecutablePath, CommandLine | 
+            Format-List
+    }
 }
 
-# 定义最大重试次数和等待时间
-$MAX_RETRIES = 5
-$WAIT_TIME = 1
+# Определение максимального количества попыток и времени ожидания
+[int]$MAX_RETRIES = 5
+[int]$WAIT_TIME = 1
 
-# 处理进程关闭
 function Close-CursorProcess {
-    param($processName)
-    
-    $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
-    if ($process) {
-        Write-Host "$YELLOW[警告]$NC 发现 $processName 正在运行"
-        Get-ProcessDetails $processName
-        
-        Write-Host "$YELLOW[警告]$NC 尝试关闭 $processName..."
-        Stop-Process -Name $processName -Force
-        
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$ProcessName
+    )
+
+    BEGIN {
         $retryCount = 0
-        while ($retryCount -lt $MAX_RETRIES) {
-            $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
-            if (-not $process) { break }
+    }
+
+    PROCESS {
+        $process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+        
+        if ($process) {
+            Write-Warning "$YELLOW[Предупреждение]$NC Обнаружен процесс $ProcessName"
+            Get-ProcessDetails -ProcessName $ProcessName
             
-            $retryCount++
-            if ($retryCount -ge $MAX_RETRIES) {
-                Write-Host "$RED[错误]$NC 在 $MAX_RETRIES 次尝试后仍无法关闭 $processName"
-                Get-ProcessDetails $processName
-                Write-Host "$RED[错误]$NC 请手动关闭进程后重试"
-                Read-Host "按回车键退出"
-                exit 1
+            Write-Warning "$YELLOW[Предупреждение]$NC Попытка завершения процесса $ProcessName..."
+            Stop-Process -Name $ProcessName -Force
+            
+            while ($retryCount -lt $MAX_RETRIES) {
+                $process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+                if (-not $process) { 
+                    Write-Information "$GREEN[Информация]$NC Процесс $ProcessName успешно завершен"
+                    break 
+                }
+                
+                $retryCount++
+                if ($retryCount -ge $MAX_RETRIES) {
+                    Write-Error "$RED[Ошибка]$NC Не удалось завершить процесс $ProcessName после $MAX_RETRIES попыток"
+                    Get-ProcessDetails -ProcessName $ProcessName
+                    Write-Error "$RED[Ошибка]$NC Пожалуйста, завершите процесс вручную и повторите попытку"
+                    Read-Host "Нажмите Enter для выхода"
+                    exit 1
+                }
+                
+                Write-Warning "$YELLOW[Предупреждение]$NC Ожидание завершения процесса, попытка $retryCount/$MAX_RETRIES..."
+                Start-Sleep -Seconds $WAIT_TIME
             }
-            Write-Host "$YELLOW[警告]$NC 等待进程关闭，尝试 $retryCount/$MAX_RETRIES..."
-            Start-Sleep -Seconds $WAIT_TIME
         }
-        Write-Host "$GREEN[信息]$NC $processName 已成功关闭"
     }
 }
 
@@ -223,28 +250,69 @@ Write-Host "$GREEN[信息]$NC 正在生成新的 ID..."
 
 # 在颜色定义后添加此函数
 function Get-RandomHex {
+    [CmdletBinding()]
     param (
-        [int]$length
+        [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateRange(1, 1024)]
+        [int]$Length
     )
-    
-    $bytes = New-Object byte[] ($length)
-    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
-    $rng.GetBytes($bytes)
-    $hexString = [System.BitConverter]::ToString($bytes) -replace '-',''
-    $rng.Dispose()
-    return $hexString
+
+    PROCESS {
+        try {
+            $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+            try {
+                $bytes = New-Object byte[] ($Length)
+                $rng.GetBytes($bytes)
+                return [System.BitConverter]::ToString($bytes) -replace '-',''
+            }
+            catch {
+                Write-Error "Ошибка генерации случайных данных: $_"
+                return $null
+            }
+            finally {
+                if ($rng) {
+                    $rng.Dispose()
+                }
+            }
+        }
+        catch {
+            Write-Error "Ошибка создания генератора случайных чисел: $_"
+            return $null
+        }
+    }
 }
 
 # 改进 ID 生成函数
 function New-StandardMachineId {
-    $template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
-    $result = $template -replace '[xy]', {
-        param($match)
-        $r = [Random]::new().Next(16)
-        $v = if ($match.Value -eq "x") { $r } else { ($r -band 0x3) -bor 0x8 }
-        return $v.ToString("x")
+    [CmdletBinding()]
+    param()
+
+    BEGIN {
+        $template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+        $guidRegex = '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     }
-    return $result
+
+    PROCESS {
+        try {
+            $result = $template -replace '[xy]', {
+                param($match)
+                $r = [Random]::new().Next(16)
+                $v = if ($match.Value -eq "x") { $r } else { ($r -band 0x3) -bor 0x8 }
+                return $v.ToString("x")
+            }
+
+            # Проверка валидности сгенерированного GUID
+            if ($result -match $guidRegex) {
+                return $result
+            } else {
+                throw "Сгенерированный ID не соответствует формату GUID"
+            }
+        }
+        catch {
+            Write-Error "Ошибка генерации Machine ID: $_"
+            return $null
+        }
+    }
 }
 
 # 在生成 ID 时使用新函数
@@ -266,163 +334,282 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 function Update-MachineGuid {
-    try {
-        # 检查注册表路径是否存在，不存在则创建
+    [CmdletBinding()]
+    param()
+
+    BEGIN {
         $registryPath = "HKLM:\SOFTWARE\Microsoft\Cryptography"
-        if (-not (Test-Path $registryPath)) {
-            Write-Host "$YELLOW[警告]$NC 注册表路径不存在: $registryPath，正在创建..."
-            New-Item -Path $registryPath -Force | Out-Null
-            Write-Host "$GREEN[信息]$NC 注册表路径创建成功"
-        }
-
-        # 获取当前的 MachineGuid，如果不存在则使用空字符串作为默认值
-        $originalGuid = ""
-        try {
-            $currentGuid = Get-ItemProperty -Path $registryPath -Name MachineGuid -ErrorAction SilentlyContinue
-            if ($currentGuid) {
-                $originalGuid = $currentGuid.MachineGuid
-                Write-Host "$GREEN[信息]$NC 当前注册表值："
-                Write-Host "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography" 
-                Write-Host "    MachineGuid    REG_SZ    $originalGuid"
-            } else {
-                Write-Host "$YELLOW[警告]$NC MachineGuid 值不存在，将创建新值"
-            }
-        } catch {
-            Write-Host "$YELLOW[警告]$NC 获取 MachineGuid 失败: $($_.Exception.Message)"
-        }
-
-        # 创建备份目录（如果不存在）
-        if (-not (Test-Path $BACKUP_DIR)) {
-            New-Item -ItemType Directory -Path $BACKUP_DIR -Force | Out-Null
-        }
-
-        # 创建备份文件（仅当原始值存在时）
-        if ($originalGuid) {
-            $backupFile = "$BACKUP_DIR\MachineGuid_$(Get-Date -Format 'yyyyMMdd_HHmmss').reg"
-            $backupResult = Start-Process "reg.exe" -ArgumentList "export", "`"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography`"", "`"$backupFile`"" -NoNewWindow -Wait -PassThru
-            
-            if ($backupResult.ExitCode -eq 0) {
-                Write-Host "$GREEN[信息]$NC 注册表项已备份到：$backupFile"
-            } else {
-                Write-Host "$YELLOW[警告]$NC 备份创建失败，继续执行..."
-            }
-        }
-
-        # 生成新GUID
-        $newGuid = [System.Guid]::NewGuid().ToString()
-
-        # 更新或创建注册表值
-        Set-ItemProperty -Path $registryPath -Name MachineGuid -Value $newGuid -Force -ErrorAction Stop
-        
-        # 验证更新
-        $verifyGuid = (Get-ItemProperty -Path $registryPath -Name MachineGuid -ErrorAction Stop).MachineGuid
-        if ($verifyGuid -ne $newGuid) {
-            throw "注册表验证失败：更新后的值 ($verifyGuid) 与预期值 ($newGuid) 不匹配"
-        }
-
-        Write-Host "$GREEN[信息]$NC 注册表更新成功："
-        Write-Host "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography"
-        Write-Host "    MachineGuid    REG_SZ    $newGuid"
-        return $true
+        $backupFile = $null
+        $originalGuid = $null
     }
-    catch {
-        Write-Host "$RED[错误]$NC 注册表操作失败：$($_.Exception.Message)"
-        
-        # 尝试恢复备份（如果存在）
-        if (($backupFile -ne $null) -and (Test-Path $backupFile)) {
-            Write-Host "$YELLOW[恢复]$NC 正在从备份恢复..."
-            $restoreResult = Start-Process "reg.exe" -ArgumentList "import", "`"$backupFile`"" -NoNewWindow -Wait -PassThru
-            
-            if ($restoreResult.ExitCode -eq 0) {
-                Write-Host "$GREEN[恢复成功]$NC 已还原原始注册表值"
-            } else {
-                Write-Host "$RED[错误]$NC 恢复失败，请手动导入备份文件：$backupFile"
+
+    PROCESS {
+        try {
+            # Проверка существования пути реестра
+            if (-not (Test-Path -Path $registryPath)) {
+                Write-Warning "$YELLOW[Предупреждение]$NC Путь реестра не существует: $registryPath"
+                New-Item -Path $registryPath -Force | Out-Null
+                Write-Information "$GREEN[Информация]$NC Путь реестра успешно создан"
             }
-        } else {
-            Write-Host "$YELLOW[警告]$NC 未找到备份文件或备份创建失败，无法自动恢复"
+
+            # Получение текущего значения
+            try {
+                $currentGuid = Get-ItemProperty -Path $registryPath -Name MachineGuid -ErrorAction SilentlyContinue
+                if ($currentGuid) {
+                    $originalGuid = $currentGuid.MachineGuid
+                    Write-Information "$GREEN[Информация]$NC Текущее значение реестра:"
+                    Write-Information "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography"
+                    Write-Information "    MachineGuid    REG_SZ    $originalGuid"
+                }
+            }
+            catch {
+                Write-Warning "$YELLOW[Предупреждение]$NC Не удалось получить текущее значение MachineGuid: $($_.Exception.Message)"
+            }
+
+            # Создание резервной копии
+            if ($originalGuid) {
+                if (-not (Test-Path -Path $BACKUP_DIR)) {
+                    New-Item -ItemType Directory -Path $BACKUP_DIR -Force | Out-Null
+                }
+
+                $backupFile = Join-Path $BACKUP_DIR "MachineGuid_$(Get-Date -Format 'yyyyMMdd_HHmmss').reg"
+                $backupResult = Start-Process -FilePath "reg.exe" `
+                    -ArgumentList "export", "`"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography`"", "`"$backupFile`"" `
+                    -NoNewWindow -Wait -PassThru
+                
+                if ($backupResult.ExitCode -eq 0) {
+                    Write-Information "$GREEN[Информация]$NC Резервная копия создана: $backupFile"
+                }
+                else {
+                    Write-Warning "$YELLOW[Предупреждение]$NC Не удалось создать резервную копию"
+                }
+            }
+
+            # Генерация и установка нового GUID
+            $newGuid = [System.Guid]::NewGuid().ToString()
+            Set-ItemProperty -Path $registryPath -Name MachineGuid -Value $newGuid -Force -ErrorAction Stop
+
+            # Проверка обновления
+            $verifyGuid = (Get-ItemProperty -Path $registryPath -Name MachineGuid -ErrorAction Stop).MachineGuid
+            if ($verifyGuid -ne $newGuid) {
+                throw "Ошибка проверки: обновленное значение ($verifyGuid) не соответствует ожидаемому ($newGuid)"
+            }
+
+            Write-Information "$GREEN[Информация]$NC Реестр успешно обновлен:"
+            Write-Information "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography"
+            Write-Information "    MachineGuid    REG_SZ    $newGuid"
+            return $true
         }
-        return $false
+        catch {
+            Write-Error "$RED[Ошибка]$NC Операция с реестром не удалась: $($_.Exception.Message)"
+            
+            if ($backupFile -and (Test-Path -Path $backupFile)) {
+                Write-Warning "$YELLOW[Восстановление]$NC Попытка восстановления из резервной копии..."
+                $restoreResult = Start-Process -FilePath "reg.exe" `
+                    -ArgumentList "import", "`"$backupFile`"" `
+                    -NoNewWindow -Wait -PassThru
+                
+                if ($restoreResult.ExitCode -eq 0) {
+                    Write-Information "$GREEN[Успех]$NC Восстановлено исходное значение"
+                }
+                else {
+                    Write-Error "$RED[Ошибка]$NC Восстановление не удалось. Файл резервной копии: $backupFile"
+                }
+            }
+            else {
+                Write-Warning "$YELLOW[Предупреждение]$NC Резервная копия не найдена, автоматическое восстановление невозможно"
+            }
+            return $false
+        }
     }
 }
 
-# 创建或更新配置文件
-Write-Host "$GREEN[信息]$NC 正在更新配置..."
+function Update-CursorConfig {
+    [CmdletBinding()]
+    param()
 
+    BEGIN {
+        Write-Information "$GREEN[Информация]$NC Обновление конфигурации..."
+    }
+
+    PROCESS {
+        try {
+            # Проверка существования файла
+            if (-not (Test-Path -Path $STORAGE_FILE)) {
+                Write-Error "$RED[Ошибка]$NC Файл конфигурации не найден: $STORAGE_FILE"
+                Write-Warning "$YELLOW[Подсказка]$NC Установите и запустите Cursor хотя бы один раз"
+                return $false
+            }
+
+            # Чтение и обновление конфигурации
+            try {
+                $originalContent = Get-Content -Path $STORAGE_FILE -Raw -Encoding UTF8
+                $config = $originalContent | ConvertFrom-Json
+
+                # Сохранение текущих значений
+                $oldValues = @{
+                    'machineId' = $config.'telemetry.machineId'
+                    'macMachineId' = $config.'telemetry.macMachineId'
+                    'devDeviceId' = $config.'telemetry.devDeviceId'
+                    'sqmId' = $config.'telemetry.sqmId'
+                }
+
+                # Обновление значений
+                $config.'telemetry.machineId' = $MACHINE_ID
+                $config.'telemetry.macMachineId' = $MAC_MACHINE_ID
+                $config.'telemetry.devDeviceId' = $UUID
+                $config.'telemetry.sqmId' = $SQM_ID
+
+                # Сохранение обновленной конфигурации
+                $updatedJson = $config | ConvertTo-Json -Depth 10
+                [System.IO.File]::WriteAllText(
+                    [System.IO.Path]::GetFullPath($STORAGE_FILE),
+                    $updatedJson,
+                    [System.Text.Encoding]::UTF8
+                )
+
+                Write-Information "$GREEN[Информация]$NC Конфигурация успешно обновлена"
+                return $true
+            }
+            catch {
+                if ($originalContent) {
+                    [System.IO.File]::WriteAllText(
+                        [System.IO.Path]::GetFullPath($STORAGE_FILE),
+                        $originalContent,
+                        [System.Text.Encoding]::UTF8
+                    )
+                }
+                throw "Ошибка обработки JSON: $_"
+            }
+        }
+        catch {
+            Write-Error "$RED[Ошибка]$NC Не удалось обновить конфигурацию: $_"
+            return $false
+        }
+    }
+
+    END {
+        # Вывод результатов
+        Write-Information ""
+        Write-Information "$GREEN[Информация]$NC Обновленные значения:"
+        Write-Information "$BLUE[Отладка]$NC machineId: $MACHINE_ID"
+        Write-Information "$BLUE[Отладка]$NC macMachineId: $MAC_MACHINE_ID"
+        Write-Information "$BLUE[Отладка]$NC devDeviceId: $UUID"
+        Write-Information "$BLUE[Отладка]$NC sqmId: $SQM_ID"
+
+        # Структура файлов
+        Write-Information ""
+        Write-Information "$GREEN[Информация]$NC Структура файлов:"
+        Write-Information "$BLUE${env:APPDATA}\Cursor\User$NC"
+        Write-Information "├── globalStorage"
+        Write-Information "│   ├── storage.json (изменён)"
+        Write-Information "│   └── backups"
+
+        # Список резервных копий
+        $backupFiles = Get-ChildItem -Path "$BACKUP_DIR\*" -ErrorAction SilentlyContinue
+        if ($backupFiles) {
+            foreach ($file in $backupFiles) {
+                Write-Information "│       └── $($file.Name)"
+            }
+        }
+        else {
+            Write-Information "│       └── (пусто)"
+        }
+    }
+}
+
+function Disable-CursorAutoUpdate {
+    [CmdletBinding()]
+    param()
+
+    BEGIN {
+        $updaterPath = Join-Path $env:LOCALAPPDATA "cursor-updater"
+    }
+
+    PROCESS {
+        try {
+            # Проверка существования файла/директории
+            if (Test-Path -Path $updaterPath) {
+                $item = Get-Item -Path $updaterPath
+                if ($item -is [System.IO.FileInfo]) {
+                    Write-Information "$GREEN[Информация]$NC Файл-блокировщик уже существует"
+                    return $true
+                }
+                else {
+                    Remove-Item -Path $updaterPath -Force -Recurse -ErrorAction Stop
+                    Write-Information "$GREEN[Информация]$NC Директория cursor-updater удалена"
+                }
+            }
+
+            # Создание файла-блокировщика
+            New-Item -Path $updaterPath -ItemType File -Force -ErrorAction Stop | Out-Null
+            Set-ItemProperty -Path $updaterPath -Name IsReadOnly -Value $true -ErrorAction Stop
+
+            # Настройка прав доступа
+            $result = Start-Process -FilePath "icacls.exe" `
+                -ArgumentList "`"$updaterPath`" /inheritance:r /grant:r `"`$($env:USERNAME):(R)`"" `
+                -NoNewWindow -Wait -PassThru
+
+            if ($result.ExitCode -eq 0) {
+                Write-Information "$GREEN[Информация]$NC Автообновление успешно отключено"
+                return $true
+            }
+            else {
+                throw "Ошибка выполнения команды icacls"
+            }
+        }
+        catch {
+            Write-Error "$RED[Ошибка]$NC Не удалось отключить автообновление: $_"
+            Show-ManualUpdateDisableGuide
+            return $false
+        }
+    }
+}
+
+function Show-ManualUpdateDisableGuide {
+    [CmdletBinding()]
+    param()
+
+    PROCESS {
+        $updaterPath = Join-Path $env:LOCALAPPDATA "cursor-updater"
+
+        Write-Warning ""
+        Write-Warning "$YELLOW[Предупреждение]$NC Автоматическая настройка не удалась. Выполните следующие шаги вручную:"
+        Write-Warning "$YELLOW[Инструкция]$NC Шаги для ручного отключения обновлений:"
+        Write-Information "1. Откройте PowerShell от имени администратора"
+        Write-Information "2. Выполните следующие команды:"
+        Write-Information "$BLUE[Команда 1]$NC Удаление директории (если существует):"
+        Write-Information "Remove-Item -Path `"$updaterPath`" -Force -Recurse -ErrorAction SilentlyContinue"
+        Write-Information ""
+        Write-Information "$BLUE[Команда 2]$NC Создание файла-блокировщика:"
+        Write-Information "New-Item -Path `"$updaterPath`" -ItemType File -Force | Out-Null"
+        Write-Information ""
+        Write-Information "$BLUE[Команда 3]$NC Установка атрибута 'только для чтения':"
+        Write-Information "Set-ItemProperty -Path `"$updaterPath`" -Name IsReadOnly -Value `$true"
+        Write-Information ""
+        Write-Information "$BLUE[Команда 4]$NC Настройка прав доступа:"
+        Write-Information "icacls `"$updaterPath`" /inheritance:r /grant:r `"`$($env:USERNAME):(R)`""
+        Write-Information ""
+        Write-Information "$YELLOW[Проверка]$NC"
+        Write-Information "1. Get-ItemProperty `"$updaterPath`""
+        Write-Information "2. Проверьте IsReadOnly = True"
+        Write-Information "3. icacls `"$updaterPath`""
+        Write-Information "4. Убедитесь, что установлены только права на чтение"
+        Write-Information ""
+        Write-Information "$YELLOW[Подсказка]$NC После выполнения всех шагов перезапустите Cursor"
+    }
+}
+
+# Основной блок скрипта
 try {
-    # 检查配置文件是否存在
-    if (-not (Test-Path $STORAGE_FILE)) {
-        Write-Host "$RED[错误]$NC 未找到配置文件: $STORAGE_FILE"
-        Write-Host "$YELLOW[提示]$NC 请先安装并运行一次 Cursor 后再使用此脚本"
-        Read-Host "按回车键退出"
+    # Обновление конфигурации
+    if (-not (Update-CursorConfig)) {
         exit 1
     }
 
-    # 读取现有配置文件
-    try {
-        $originalContent = Get-Content $STORAGE_FILE -Raw -Encoding UTF8
-        
-        # 将 JSON 字符串转换为 PowerShell 对象
-        $config = $originalContent | ConvertFrom-Json 
-
-        # 备份当前值
-        $oldValues = @{
-            'machineId' = $config.'telemetry.machineId'
-            'macMachineId' = $config.'telemetry.macMachineId'
-            'devDeviceId' = $config.'telemetry.devDeviceId'
-            'sqmId' = $config.'telemetry.sqmId'
-        }
-
-        # 更新特定的值
-        $config.'telemetry.machineId' = $MACHINE_ID
-        $config.'telemetry.macMachineId' = $MAC_MACHINE_ID
-        $config.'telemetry.devDeviceId' = $UUID
-        $config.'telemetry.sqmId' = $SQM_ID
-
-        # 将更新后的对象转换回 JSON 并保存
-        $updatedJson = $config | ConvertTo-Json -Depth 10
-        [System.IO.File]::WriteAllText(
-            [System.IO.Path]::GetFullPath($STORAGE_FILE), 
-            $updatedJson, 
-            [System.Text.Encoding]::UTF8
-        )
-        Write-Host "$GREEN[信息]$NC 成功更新配置文件"
-    } catch {
-        # 如果出错，尝试恢复原始内容
-        if ($originalContent) {
-            [System.IO.File]::WriteAllText(
-                [System.IO.Path]::GetFullPath($STORAGE_FILE), 
-                $originalContent, 
-                [System.Text.Encoding]::UTF8
-            )
-        }
-        throw "处理 JSON 失败: $_"
-    }
-    # 直接执行更新 MachineGuid，不再询问
-    Update-MachineGuid
-    # 显示结果
-    Write-Host ""
-    Write-Host "$GREEN[信息]$NC 已更新配置:"
-    Write-Host "$BLUE[调试]$NC machineId: $MACHINE_ID"
-    Write-Host "$BLUE[调试]$NC macMachineId: $MAC_MACHINE_ID"
-    Write-Host "$BLUE[Отладка]$NC devDeviceId: $UUID"
-    Write-Host "$BLUE[Отладка]$NC sqmId: $SQM_ID"
-
-    # Отображение структуры файлов
-    Write-Host ""
-    Write-Host "$GREEN[Информация]$NC Структура файлов:"
-    Write-Host ("$BLUE" + $env:APPDATA + "\Cursor\User$NC")
-    Write-Host "├── globalStorage"
-    Write-Host "│   ├── storage.json (изменён)"
-    Write-Host "│   └── backups"
-
-    # Список резервных копий
-    $backupFiles = Get-ChildItem "$BACKUP_DIR\*" -ErrorAction SilentlyContinue
-    if ($backupFiles) {
-        foreach ($file in $backupFiles) {
-            Write-Host "│       └── $($file.Name)"
-        }
-    } else {
-        Write-Host "│       └── (пусто)"
+    # Обновление MachineGuid
+    if (-not (Update-MachineGuid)) {
+        exit 1
     }
 
     # Информация о канале
@@ -434,7 +621,7 @@ try {
     Write-Host "$GREEN[Информация]$NC Пожалуйста, перезапустите Cursor для применения новых настроек"
     Write-Host ""
 
-    # Вопрос о запрете автообновления
+    # Запрос на отключение автообновления
     Write-Host ""
     Write-Host "$YELLOW[Вопрос]$NC Отключить автоматическое обновление Cursor?"
     Write-Host "0) Нет - оставить по умолчанию (Enter)"
@@ -444,156 +631,65 @@ try {
     if ($choice -eq "1") {
         Write-Host ""
         Write-Host "$GREEN[Информация]$NC Обработка автоматического обновления..."
-        $updaterPath = "$env:LOCALAPPDATA\cursor-updater"
-
-        # Инструкция по ручной настройке
-        function Show-ManualGuide {
-            Write-Host ""
-            Write-Host "$YELLOW[Предупреждение]$NC Автоматическая настройка не удалась, попробуйте вручную:"
-            Write-Host "$YELLOWШаги для ручного отключения обновлений:$NC"
-            Write-Host "1. Откройте PowerShell от имени администратора"
-            Write-Host "2. Вставьте и выполните команды:"
-            Write-Host "$BLUEКоманда 1 - удалить директорию (если есть):$NC"
-            Write-Host "Remove-Item -Path `"$updaterPath`" -Force -Recurse -ErrorAction SilentlyContinue"
-            Write-Host ""
-            Write-Host "$BLUEКоманда 2 - создать файл-блокировщик:$NC"
-            Write-Host "New-Item -Path `"$updaterPath`" -ItemType File -Force | Out-Null"
-            Write-Host ""
-            Write-Host "$BLUEКоманда 3 - установить только для чтения:$NC"
-            Write-Host "Set-ItemProperty -Path `"$updaterPath`" -Name IsReadOnly -Value `$true"
-            Write-Host ""
-            Write-Host "$BLUEКоманда 4 - настроить права (опционально):$NC"
-            Write-Host "icacls `"$updaterPath`" /inheritance:r /grant:r `"`$($env:USERNAME):(R)`""
-            Write-Host ""
-            Write-Host "$YELLOWПроверка:$NC"
-            Write-Host "1. Get-ItemProperty `"$updaterPath`""
-            Write-Host "2. Убедитесь, что IsReadOnly = True"
-            Write-Host "3. icacls `"$updaterPath`""
-            Write-Host "4. Только права на чтение"
-            Write-Host ""
-            Write-Host "$YELLOW[Подсказка]$NC После завершения перезапустите Cursor"
-        }
-
-        try {
-            # Проверка существования cursor-updater
-            if (Test-Path $updaterPath) {
-                # Если файл — блокировка уже создана
-                if ((Get-Item $updaterPath) -is [System.IO.FileInfo]) {
-                    Write-Host "$GREEN[Информация]$NC Файл-блокировщик уже создан, повторное создание не требуется"
-                    return
-                }
-                # Если директория — пробуем удалить
-                else {
-                    try {
-                        Remove-Item -Path $updaterPath -Force -Recurse -ErrorAction Stop
-                        Write-Host "$GREEN[Информация]$NC Директория cursor-updater успешно удалена"
-                    }
-                    catch {
-                        Write-Host "$RED[Ошибка]$NC Не удалось удалить директорию cursor-updater"
-                        Show-ManualGuide
-                        return
-                    }
-                }
-            }
-
-            # Создание файла-блокировщика
-            try {
-                New-Item -Path $updaterPath -ItemType File -Force -ErrorAction Stop | Out-Null
-                Write-Host "$GREEN[Информация]$NC Файл-блокировщик успешно создан"
-            }
-            catch {
-                Write-Host "$RED[Ошибка]$NC Не удалось создать файл-блокировщик"
-                Show-ManualGuide
-                return
-            }
-
-            # Настройка прав
-            try {
-                # Только для чтения
-                Set-ItemProperty -Path $updaterPath -Name IsReadOnly -Value $true -ErrorAction Stop
-                # icacls
-                $result = Start-Process "icacls.exe" -ArgumentList "`"$updaterPath`" /inheritance:r /grant:r `"`$($env:USERNAME):(R)`"" -Wait -NoNewWindow -PassThru
-                if ($result.ExitCode -ne 0) {
-                    throw "icacls команда завершилась с ошибкой"
-                }
-                Write-Host "$GREEN[Информация]$NC Права доступа к файлу успешно установлены"
-            }
-            catch {
-                Write-Host "$RED[Ошибка]$NC Не удалось установить права доступа к файлу"
-                Show-ManualGuide
-                return
-            }
-
-            # Проверка
-            try {
-                $fileInfo = Get-ItemProperty $updaterPath
-                if (-not $fileInfo.IsReadOnly) {
-                    Write-Host "$RED[Ошибка]$NC Ошибка проверки: возможно, права доступа к файлу не применились"
-                    Show-ManualGuide
-                    return
-                }
-            }
-            catch {
-                Write-Host "$RED[Ошибка]$NC Не удалось проверить настройки"
-                Show-ManualGuide
-                return
-            }
-
-            Write-Host "$GREEN[Информация]$NC Автоматическое обновление успешно отключено"
-        }
-        catch {
-            Write-Host "$RED[Ошибка]$NC Произошла неизвестная ошибка: $_"
-            Show-ManualGuide
+        if (-not (Disable-CursorAutoUpdate)) {
+            exit 1
         }
     }
     else {
-        Write-Host "$GREEN[Информация]$NC Оставить настройки по умолчанию, не изменять"
-    }
-
-    # Сохраняем изменения в реестре
-    Update-MachineGuid
-
-} catch {
-    Write-Host "$RED[Ошибка]$NC Основная операция завершилась с ошибкой: $_"
-    Write-Host "$YELLOW[Попытка]$NC Использую альтернативный способ..."
-    try {
-        # Альтернативный способ: Add-Content
-        $tempFile = [System.IO.Path]::GetTempFileName()
-        $config | ConvertTo-Json | Set-Content -Path $tempFile -Encoding UTF8
-        Copy-Item -Path $tempFile -Destination $STORAGE_FILE -Force
-        Remove-Item -Path $tempFile
-        Write-Host "$GREEN[Информация]$NC Альтернативный способ записи конфигурации выполнен успешно"
-    } catch {
-        Write-Host "$RED[Ошибка]$NC Все попытки не удались"
-        Write-Host "Подробности ошибки: $_"
-        Write-Host "Целевой файл: $STORAGE_FILE"
-        Write-Host "Убедитесь, что у вас достаточно прав для доступа к этому файлу"
-        Read-Host "Нажмите Enter для выхода"
-        exit 1
+        Write-Information "$GREEN[Информация]$NC Настройки автообновления оставлены без изменений"
     }
 }
+catch {
+    Write-Error "$RED[Ошибка]$NC Необработанная ошибка: $_"
+    exit 1
+}
+finally {
+    Write-Host ""
+    Read-Host "Нажмите Enter для выхода"
+}
 
-Write-Host ""
-Read-Host "Нажмите Enter для выхода"
-exit 0
-
-# Функция для записи конфигурации
 function Write-ConfigFile {
-    param($config, $filePath)
-    try {
-        # Используем UTF8 без BOM
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [PSObject]$Config,
+
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string]$FilePath
+    )
+
+    BEGIN {
+        # Создаем кодировку UTF8 без BOM
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-        $jsonContent = $config | ConvertTo-Json -Depth 10
-        # LF вместо CRLF
-        $jsonContent = $jsonContent.Replace("`r`n", "`n")
-        [System.IO.File]::WriteAllText(
-            [System.IO.Path]::GetFullPath($filePath),
-            $jsonContent,
-            $utf8NoBom
-        )
-        Write-Host "$GREEN[Информация]$NC Конфигурационный файл успешно записан (UTF8 без BOM)"
     }
-    catch {
-        throw "Не удалось записать конфигурационный файл: $_"
+
+    PROCESS {
+        try {
+            # Преобразуем конфигурацию в JSON
+            $jsonContent = $Config | ConvertTo-Json -Depth 10
+
+            # Заменяем CRLF на LF для совместимости
+            $jsonContent = $jsonContent.Replace("`r`n", "`n")
+
+            # Получаем полный путь к файлу
+            $fullPath = [System.IO.Path]::GetFullPath($FilePath)
+
+            # Создаем директорию, если не существует
+            $directory = [System.IO.Path]::GetDirectoryName($fullPath)
+            if (-not (Test-Path -Path $directory)) {
+                New-Item -ItemType Directory -Path $directory -Force | Out-Null
+                Write-Information "$GREEN[Информация]$NC Создана директория: $directory"
+            }
+
+            # Записываем файл
+            [System.IO.File]::WriteAllText($fullPath, $jsonContent, $utf8NoBom)
+            Write-Information "$GREEN[Информация]$NC Конфигурационный файл успешно записан: $fullPath"
+            Write-Information "$BLUE[Отладка]$NC Использована кодировка: UTF8 без BOM"
+            return $true
+        }
+        catch {
+            Write-Error "$RED[Ошибка]$NC Не удалось записать конфигурационный файл: $_"
+            return $false
+        }
     }
 } 
